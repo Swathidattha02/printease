@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>XeroxFlow - Fleet Management Simplified</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2f3c5b",
+                        "primary-hover": "#242e46",
+                        "background-light": "#f6f7f7",
+                        "background-dark": "#16181c",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#23262d",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-[#121317] dark:text-gray-100 font-display transition-colors duration-200">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<header class="sticky top-0 z-50 w-full border-b border-[#ebecef] dark:border-gray-800 bg-surface-light/80 dark:bg-surface-dark/80 backdrop-blur-md">
+<div class="px-4 md:px-10 py-4 max-w-[1280px] mx-auto flex items-center justify-between">
+<div class="flex items-center gap-4 text-primary dark:text-white">
+<div class="size-8 flex items-center justify-center bg-primary rounded-lg text-white">
+<span class="material-symbols-outlined text-[20px]">print</span>
+</div>
+<h2 class="text-xl font-bold leading-tight tracking-[-0.015em] text-primary dark:text-white">XeroxFlow</h2>
+</div>
+<div class="flex gap-3">
+<a href="/login" class="flex cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 text-primary dark:text-gray-200 text-sm font-bold transition-colors">
+                    Log in
+                </a>
+<a href="/signup" class="flex cursor-pointer items-center justify-center rounded-lg h-9 px-4 bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-colors shadow-sm">
+                    Signup
+                </a>
+</div>
+</div>
+</header>
+<main class="flex-1">
+<section class="relative px-4 py-16 md:py-24 max-w-[1280px] mx-auto">
+<div class="@container">
+<div class="flex flex-col-reverse lg:flex-row items-center gap-12 lg:gap-20">
+<div class="flex flex-col gap-6 lg:w-1/2 items-start text-left">
+<div class="inline-flex items-center rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1 text-xs font-semibold text-primary dark:text-blue-300 shadow-sm">
+<span class="flex h-2 w-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>
+                            New Version 2.0 Released
+                        </div>
+<h1 class="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight text-slate-900 dark:text-white">
+                            Streamline Your <span class="text-primary dark:text-blue-400">Xerox Fleet</span> in One Flow.
+                        </h1>
+<p class="text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-[540px]">
+                            Centralized management, automated supply ordering, and real-time analytics for modern enterprises. Stop managing printers, start managing flow.
+                        </p>
+<div class="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400 mt-2">
+<div class="flex -space-x-2">
+<div class="size-8 rounded-full border-2 border-white dark:border-gray-900 bg-gray-200 bg-cover" data-alt="User avatar 1" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCkKrz1Trcc11lIO8SpVW4Nrl5F3pLbJ6IxF80IUP9mi6wguL6VkBvqPHBXMVCLfyEfDTYol1EPA8PiPSrbNhAvOT6e-JHHj9Xx5EKHiQMW-ZJAMBz7Mt_VjjP7xUlvlVPXJQQoWG-RoOVjtsfvAIxQK4dnmqSbzvvjedU0qaXwWtW1Ez5XYWqjx92Z2kAFBQUB6aVHzIrCk58j36zg1spt4R-9tnw9-jeUnXagm4_wAKllX5UTop4WiFqKjLaxmPUM6qm-Y4K6EPnc')"></div>
+<div class="size-8 rounded-full border-2 border-white dark:border-gray-900 bg-gray-200 bg-cover" data-alt="User avatar 2" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD8IXAAWWSQQR21cCY8QHfO_Y9qTBBb3gcqk_GLNHjaK6HGMz-yM6CS67QbdIyZMWwwskRPH4Pmqbvg4cjm950REfGJmhQJtkgCvECqCQyYSCktTfy6wNiECjKmVQA3nTaGSKsMEmN89K6nMnJAindbrpQWqYMllNdlahGzqdxgAT1ufNcVZCtMnFxry5I71bW4UO2krnSXA3VWYIKo7xHoy1wk8tFBsTGYFrBLmODIV_s-S0K4m9XSJSzcB7g3kjgFe4QiFHmiW3SH')"></div>
+<div class="size-8 rounded-full border-2 border-white dark:border-gray-900 bg-gray-200 bg-cover" data-alt="User avatar 3" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCNltp1xVifDsETwqj02qQXmzdM69bjzxn-JQBn7cryxsviT0VG1SSU83bbxJEkgHTrY1h7m_SjBGT-5turQkRol708pUjbNo91_z8XZhu5se_5vfI-Mlhel3tGCBQWLWuKrcA_xSLDYuS7f69WpkEPRbXFuxgrbq3ZlqGNl_mstqPD4fv08-6d_uFzkfm6C0jiheaMWtDdiROs0uSSDcy0inqkOxaC0rqZYyfgQhTpdEG15B4pgLgGNhuBv_qLdQZBXY8pg9gCMkAh')"></div>
+</div>
+<p>Trusted by 1000+ Managers</p>
+</div>
+</div>
+<div class="w-full lg:w-1/2 relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+<div class="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark aspect-[4/3] md:aspect-video flex items-center justify-center bg-cover bg-center" data-alt="Modern dashboard interface displaying analytics charts and graphs on a tablet screen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuATXa9NUnRNePKOe0KTiHrVBUzpbr4s1FqP37JkMUeKMFJER-jRGBBTbzQ2X-k6BXfmwpQ_9DpDAi3dsX4wNo2KdlZJol8SkSvcDVcvdcBcnqPiJMBPYVoSDQzNZBDTn8xDnd0dbofl09pR6cSQv-eQPCxw5GEohPolRWPw57BnJStfVf7R_Moh-IrXlg31mVGvQprC9JKszUU5j19N8b4OkuoHRkPkzuJczEkVoQwK2VEW8xsusLlVB2gs1oCg1Zmirl4bogg2k-bV');">
+<div class="absolute inset-0 bg-primary/10 mix-blend-multiply"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="border-y border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 py-10">
+<div class="max-w-[1280px] mx-auto px-4 text-center">
+<h4 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-8">Trusted by industry leaders</h4>
+<div class="flex flex-wrap justify-center items-center gap-10 md:gap-16 opacity-60 grayscale transition-all duration-500 hover:grayscale-0 hover:opacity-100">
+<div class="flex items-center gap-2 text-xl font-bold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">change_history</span> ACME Corp
+                    </div>
+<div class="flex items-center gap-2 text-xl font-bold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">all_inclusive</span> Infinity
+                    </div>
+<div class="flex items-center gap-2 text-xl font-bold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">language</span> GlobalTech
+                    </div>
+<div class="flex items-center gap-2 text-xl font-bold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">architecture</span> Structura
+                    </div>
+<div class="flex items-center gap-2 text-xl font-bold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">bolt</span> Volted
+                    </div>
+</div>
+</div>
+</section>
+<section class="py-20 px-4 max-w-[1280px] mx-auto">
+<div class="flex flex-col items-center gap-4 text-center mb-16">
+<h2 class="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white max-w-[700px]">
+                    Everything you need to optimize your document workflow
+                </h2>
+<p class="text-lg text-slate-600 dark:text-slate-400 max-w-[600px]">
+                    XeroxFlow connects your entire fleet into a single, manageable stream of data and control.
+                </p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="group p-8 rounded-2xl bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+<div class="size-12 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary dark:text-blue-400 mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[28px]">monitoring</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Real-time Monitoring</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Track device status instantly across your entire organization without delays. Know what's happening before your users do.
+                    </p>
+</div>
+<div class="group p-8 rounded-2xl bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+<div class="size-12 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary dark:text-blue-400 mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[28px]">pie_chart</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Cost Allocation</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Precise billing and department tracking to manage your budget effectively. Drill down to individual user usage.
+                    </p>
+</div>
+<div class="group p-8 rounded-2xl bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+<div class="size-12 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-primary dark:text-blue-400 mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[28px]">notifications_active</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Smart Alerts</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Predictive maintenance notifications to prevent downtime before it happens. Automated supply reordering included.
+                    </p>
+</div>
+</div>
+</section>
+<section class="py-16 px-4 bg-white dark:bg-surface-dark/50 border-y border-gray-100 dark:border-gray-800">
+<div class="max-w-[1280px] mx-auto">
+<div class="flex flex-col md:flex-row items-center gap-12 lg:gap-24">
+<div class="w-full md:w-1/2">
+<div class="rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700">
+<div class="bg-gray-100 dark:bg-gray-800 aspect-video bg-cover bg-center" data-alt="Data analytics dashboard showing colorful graphs and metrics on a screen" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCPIsiFKHlmaI5BjTkR3VPbBV05QxDsk3HC1MNcP9t3lDSIqNmEp5aOU6_P-pcYGPiaruqRP8yBGK_RARa3TB15lBKqu2r2CHtYSWJEG3F-3ib8RFsw607PRSBhWxE9h3l6_TbVy4vm9JIhVcFpXt0LqPySWBPldnS-WsNiMOCL7FJ5_K12r8zsMkx9OPiiUt-JWx93Ba9o7SV_8AjGkbACfnguiHi6QdTp5khU-_q5A0K88lpLZQB2TiwpA6MvACifSGsLYuPr8kYr')">
+</div>
+</div>
+</div>
+<div class="w-full md:w-1/2 flex flex-col gap-6">
+<h3 class="text-3xl font-bold text-slate-900 dark:text-white">Detailed Reporting at Your Fingertips</h3>
+<p class="text-slate-600 dark:text-slate-400 text-lg">
+                            Stop guessing where your printing budget goes. XeroxFlow provides granular reports that highlight inefficiencies, identify high-volume users, and suggest optimization strategies automatically.
+                        </p>
+<ul class="flex flex-col gap-3">
+<li class="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-green-500">check_circle</span>
+<span>Export to PDF, Excel, or CSV</span>
+</li>
+<li class="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-green-500">check_circle</span>
+<span>Automated weekly email summaries</span>
+</li>
+<li class="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-green-500">check_circle</span>
+<span>Department-level breakdown</span>
+</li>
+</ul>
+<div class="pt-2">
+<a class="text-primary dark:text-blue-400 font-bold hover:underline inline-flex items-center gap-1" href="#">
+                                Learn more about analytics <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-16 px-4 text-center">
+<div class="max-w-[700px] mx-auto flex flex-col items-center gap-6">
+<p class="text-lg text-slate-600 dark:text-slate-400">Join 500+ companies that trust XeroxFlow for their document management needs.</p>
+<div class="flex flex-col sm:flex-row gap-4 w-full justify-center">
+<a href="/signup" class="flex items-center justify-center rounded-xl h-12 px-8 bg-primary hover:bg-primary-hover text-white text-base font-bold shadow-lg transition-all inline-block">
+                        Signup Now
+                    </a>
+<button class="flex items-center justify-center rounded-xl h-12 px-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-slate-900 dark:text-white text-base font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
+                        Contact Sales
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<footer class="bg-white dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 pt-16 pb-8">
+<div class="max-w-[1280px] mx-auto px-4 md:px-10">
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
+<div class="col-span-2 lg:col-span-2 flex flex-col gap-4 pr-8">
+<div class="flex items-center gap-2 text-primary dark:text-white">
+<span class="material-symbols-outlined text-[24px]">print</span>
+<span class="text-xl font-bold">XeroxFlow</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed max-w-[300px]">
+                        The leading platform for enterprise document management and fleet optimization. Simplify your workflow today.
+                    </p>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold text-slate-900 dark:text-white">Product</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Features</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Integrations</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Pricing</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Changelog</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold text-slate-900 dark:text-white">Resources</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Documentation</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">API Reference</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Community</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Help Center</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="font-bold text-slate-900 dark:text-white">Company</h4>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">About</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Blog</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Careers</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-blue-400 text-sm" href="#">Legal</a>
+</div>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-8 border-t border-gray-100 dark:border-gray-800">
+<p class="text-slate-400 text-sm">© 2023 XeroxFlow Inc. All rights reserved.</p>
+<div class="flex gap-4">
+<a class="text-slate-400 hover:text-primary dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">public</span>
+</a>
+<a class="text-slate-400 hover:text-primary dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">rss_feed</span>
+</a>
+<a class="text-slate-400 hover:text-primary dark:hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">mail</span>
+</a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+</body></html>
