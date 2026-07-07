@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
 const ResetPassword = () => {
@@ -23,7 +23,7 @@ const ResetPassword = () => {
 
         setLoading(true);
         try {
-            const res = await axios.post(`http://localhost:5000/api/auth/reset-password/${token}`, {
+            const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/reset-password/${token}`, {
                 password,
                 confirmPassword
             });
@@ -73,7 +73,7 @@ const ResetPassword = () => {
                 )}
                 
                 <div className="auth-footer" style={{ marginTop: '20px' }}>
-                    <a href="/login">Back to Login</a>
+                    <Link to="/login">Back to Login</Link>
                 </div>
             </div>
         </div>

@@ -2,21 +2,22 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { OrderProvider } from './context/OrderContext';
-import Navbar from './components/Navbar';
+import Navbar from './components/Navbar.jsx';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Landing from './pages/Landing';
 import UsersDashboard from './pages/UsersDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ResetPassword from './pages/ResetPassword';
-import PrivateRoute from './components/PrivateRoute';
+import PrivateRoute from './components/PrivateRoute.jsx';
 import './App.css';
 
 function AppContent() {
   const location = useLocation();
   const isAdminPath = location.pathname.startsWith('/admin');
+  const isDashboardPath = location.pathname.startsWith('/dashboard');
   const isAuthPath = location.pathname === '/login' || location.pathname === '/signup' || location.pathname.startsWith('/reset-password');
-  const hideNavbar = isAdminPath || isAuthPath;
+  const hideNavbar = isAdminPath || isDashboardPath || isAuthPath;
 
   return (
     <div className="App">

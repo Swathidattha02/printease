@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import AuthContext from '../context/AuthContext';
 import './AdminDashboard.css';
 
@@ -21,8 +22,30 @@ const AdminDashboard = () => {
     useEffect(() => {
         fetchOrders();
         fetchUsers();
-        const interval = setInterval(fetchOrders, 30000); // Poll every 30s
-        return () => clearInterval(interval);
+
+        // Socket.io Real-time connection
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+        const socket = io(backendUrl);
+
+        socket.on('connect', () => {
+            console.log('[Socket] Connected to backend');
+        });
+
+        socket.on('new-order', (newOrder) => {
+            console.log('[Socket] New order event received:', newOrder);
+            fetchOrders(); // Instantly refresh data & recalculate stats
+        });
+
+        socket.on('disconnect', () => {
+            console.log('[Socket] Disconnected from backend');
+        });
+
+        const interval = setInterval(fetchOrders, 30000); // Poll every 30s as fallback
+        
+        return () => {
+            clearInterval(interval);
+            socket.disconnect();
+        };
     }, []);
 
     useEffect(() => {
@@ -37,7 +60,7 @@ const AdminDashboard = () => {
 
     const fetchOrders = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/orders');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/orders`);
             const data = res.data;
             setOrders(data);
 
@@ -54,7 +77,7 @@ const AdminDashboard = () => {
 
     const fetchUsers = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/auth/users');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/auth/users`);
             setUsers(res.data || []);
         } catch (err) {
             console.error('Fetch users error', err);
@@ -63,7 +86,7 @@ const AdminDashboard = () => {
 
     const updateStatus = async (id, status) => {
         try {
-            await axios.put(`http://localhost:5000/api/orders/${id}/status`, { status });
+            await axios.put(`${process.env.REACT_APP_API_URL}/orders/${id}/status`, { status });
             fetchOrders();
         } catch (err) {
             alert('Update Failed');
@@ -90,7 +113,7 @@ const AdminDashboard = () => {
         }
 
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/change-password', cpData);
+            const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/change-password`, cpData);
             setCpMessage(res.data.msg || 'Password updated successfully!');
             setCpData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
             setTimeout(() => {
@@ -276,7 +299,7 @@ const AdminDashboard = () => {
                                                             <>
                                                                 <span style={{ margin: '0 6px', color: '#4b5563' }}>•</span>
                                                                 <a 
-                                                                    href={`http://localhost:5000/uploads/${order.paymentScreenshotPath.split(/[\\/]/).pop()}`} 
+                                                                    href={`${process.env.REACT_APP_BACKEND_URL}/uploads/${order.paymentScreenshotPath.split(/[\\/]/).pop()}`} 
                                                                     target="_blank" 
                                                                     rel="noopener noreferrer" 
                                                                     style={{ color: '#38bdf8', textDecoration: 'underline' }}

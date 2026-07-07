@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 const Landing = () => {
   useEffect(() => {
@@ -150,7 +151,7 @@ const Landing = () => {
           <div className="max-w-[700px] mx-auto flex flex-col items-center gap-6">
             <p className="text-lg text-slate-600 dark:text-slate-400">Join 500+ companies that trust XeroxFlow for their document management needs.</p>
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <a href="/signup" className="flex items-center justify-center rounded-xl h-12 px-8 bg-primary hover:bg-primary-hover text-white text-base font-bold shadow-lg transition-all">Signup Now</a>
+              <Link to="/signup" className="flex items-center justify-center rounded-xl h-12 px-8 bg-primary hover:bg-primary-hover text-white text-base font-bold shadow-lg transition-all">Signup Now</Link>
 
             </div>
           </div>

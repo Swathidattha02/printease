@@ -7,20 +7,44 @@ const UsersDashboard = () => {
   const { user: authUser, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  // Navigation / Sidebar state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [uploaded, setUploaded] = useState(null);
+
+  // Form inputs
+  const [documentFile, setDocumentFile] = useState(null);
+  const [documentDetails, setDocumentDetails] = useState({ name: '', size: 0, pages: 0 });
+  const [parsingPages, setParsingPages] = useState(false);
+
   const [copies, setCopies] = useState(1);
-  const [colorMode, setColorMode] = useState('Color');
-  const [paperSize, setPaperSize] = useState('A4 (Standard)');
+  const [colorMode, setColorMode] = useState('bw'); // 'bw' or 'color'
+  const [paperSize, setPaperSize] = useState('A4');
   const [sidedness, setSidedness] = useState('Double Sided (Long Edge)');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+
+  // Payment states
+  const [paymentScreenshot, setPaymentScreenshot] = useState(null);
+  const [paymentScreenshotName, setPaymentScreenshotName] = useState('');
+
+  // Order Submission & History states
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [orderResult, setOrderResult] = useState(null);
+  const [orderError, setOrderError] = useState(null);
+  const [myOrders, setMyOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+
+  // Helper refs to reset file inputs
   const fileInputRef = useRef(null);
+  const screenshotInputRef = useRef(null);
 
-  const pricePerPage = 2.0; // ₹2.0 per page for copies
-  const fileInputKeyRef = useRef(Date.now()); // helper to reset file input
+  const pricePerPage = colorMode === 'color' 
+    ? (Number(process.env.REACT_APP_PRICE_PER_PAGE_COLOR) || 4.0) 
+    : (Number(process.env.REACT_APP_PRICE_PER_PAGE_BW) || 2.0);
 
+  // Load order history and setup fonts/Tailwind config
   useEffect(() => {
+    fetchOrdersHistory();
+
     // Inject Tailwind CSS configuration if not present
     if (!document.getElementById('tw-cdn-users-dashboard')) {
       const s = document.createElement('script');
@@ -47,106 +71,123 @@ const UsersDashboard = () => {
       };
       document.head.appendChild(s);
     }
-
-    // Google Fonts link injections
-    if (!document.querySelector('link[href*="fonts.googleapis.com/css2?family=Inter"]')) {
-      const l1 = document.createElement('link');
-      l1.rel = 'preconnect';
-      l1.href = 'https://fonts.googleapis.com';
-      document.head.appendChild(l1);
-      const l2 = document.createElement('link');
-      l2.rel = 'preconnect';
-      l2.crossOrigin = '';
-      l2.href = 'https://fonts.gstatic.com';
-      document.head.appendChild(l2);
-      const l3 = document.createElement('link');
-      l3.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap';
-      l3.rel = 'stylesheet';
-      document.head.appendChild(l3);
-      const l4 = document.createElement('link');
-      l4.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap';
-      l4.rel = 'stylesheet';
-      document.head.appendChild(l4);
-    }
   }, []);
 
-  const openFilePicker = () => fileInputRef.current?.click();
+  const fetchOrdersHistory = async () => {
+    try {
+      setLoadingOrders(true);
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/orders/my-orders`);
+      setMyOrders(res.data || []);
+    } catch (err) {
+      console.error('Fetch orders history error:', err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
 
-  const handleFile = (file) => {
+  const handleDocumentSelect = async (file) => {
     if (!file) return;
-    // mock pages detection for demo/draft upload
-    const pages = 8;
-    setUploaded({ file, name: file.name, size: file.size, pages });
+    setDocumentFile(file);
+    setDocumentDetails({ name: file.name, size: file.size, pages: 0 });
+    setParsingPages(true);
+    setOrderError(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      // Hit the print upload endpoint to parse PDF and extract page counts
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/prints/upload`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setDocumentDetails({
+        name: file.name,
+        size: file.size,
+        pages: res.data.totalPages || 1
+      });
+    } catch (err) {
+      console.error('Failed to parse PDF page count:', err);
+      // Fallback: Default to 1 page
+      setDocumentDetails({ name: file.name, size: file.size, pages: 1 });
+    } finally {
+      setParsingPages(false);
+    }
   };
 
-  const onDrop = (e) => {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) handleFile(f);
+  const handleScreenshotSelect = (file) => {
+    if (!file) return;
+    setPaymentScreenshot(file);
+    setPaymentScreenshotName(file.name);
   };
 
-  const onDragOver = (e) => e.preventDefault();
-
-  const decCopies = () => setCopies(c => Math.max(1, c - 1));
-  const incCopies = () => setCopies(c => Math.min(100, c + 1));
-
-  const clearUploadedFile = (e) => {
+  const clearDocument = (e) => {
     if (e) e.stopPropagation();
-    setUploaded(null);
-    fileInputKeyRef.current = Date.now();
+    setDocumentFile(null);
+    setDocumentDetails({ name: '', size: 0, pages: 0 });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const clearScreenshot = (e) => {
+    if (e) e.stopPropagation();
+    setPaymentScreenshot(null);
+    setPaymentScreenshotName('');
+    if (screenshotInputRef.current) screenshotInputRef.current.value = '';
   };
 
   const resetForm = () => {
-    setUploaded(null);
+    clearDocument();
+    clearScreenshot();
     setCopies(1);
-    setColorMode('Color');
-    setPaperSize('A4 (Standard)');
+    setColorMode('bw');
+    setPaperSize('A4');
     setSidedness('Double Sided (Long Edge)');
     setDate('');
     setTime('');
     setOrderResult(null);
     setOrderError(null);
-    fileInputKeyRef.current = Date.now();
   };
 
-  const [loadingPay, setLoadingPay] = useState(false);
-  const [orderResult, setOrderResult] = useState(null);
-  const [orderError, setOrderError] = useState(null);
-
-  const handlePay = async () => {
-    if (!uploaded?.file) {
-      setOrderError('Please upload a file first');
+  const handleOrderSubmit = async (e) => {
+    e.preventDefault();
+    if (!documentFile) {
+      setOrderError('Please upload a PDF/Document file first');
       return;
     }
     if (!date || !time) {
-      setOrderError('Please select a pickup delivery date and time');
+      setOrderError('Please specify pick-up date and time');
       return;
     }
+    if (!paymentScreenshot) {
+      setOrderError('Please upload your payment screenshot/receipt to complete the order');
+      return;
+    }
+
     setOrderError(null);
-    setLoadingPay(true);
+    setLoadingSubmit(true);
+
     try {
       const fd = new FormData();
-      fd.append('file', uploaded.file);
-      fd.append('printType', colorMode === 'Color' ? 'color' : 'bw');
+      fd.append('file', documentFile);
+      fd.append('paymentScreenshot', paymentScreenshot);
+      fd.append('printType', colorMode);
       fd.append('copies', String(copies));
       fd.append('paperSize', paperSize);
       fd.append('pickupTime', `${date} ${time}`);
+      fd.append('paymentMethod', 'upi');
 
-      const res = await axios.post('http://localhost:5000/api/orders/draft', fd);
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/orders`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       setOrderResult(res.data);
-      setOrderError(null);
+      resetForm();
+      fetchOrdersHistory(); // Refresh history list
     } catch (err) {
-      console.error('Order create error', err);
-      const msg = err?.response?.data?.msg || err?.response?.data || err.message || 'Order creation failed';
+      console.error('Order submit error:', err);
+      const msg = err?.response?.data?.msg || err?.response?.data || err.message || 'Failed to submit order';
       setOrderError(msg);
     } finally {
-      setLoadingPay(false);
+      setLoadingSubmit(false);
     }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
   };
 
   const getProfileInitials = () => {
@@ -156,26 +197,29 @@ const UsersDashboard = () => {
     return 'US';
   };
 
+  // Live total estimation
+  const calculatedTotal = documentDetails.pages * copies * pricePerPage;
+
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-800 dark:text-gray-100 h-screen flex overflow-hidden font-display">
+    <div className="bg-[#f3f4f6] text-slate-800 h-screen flex overflow-hidden font-display">
       
       {/* Desktop Left Sidebar */}
-      <aside className="w-64 bg-primary text-white flex-col hidden md:flex h-full shadow-xl z-20">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
-            <span className="material-symbols-outlined">print</span>
+      <aside className="w-64 bg-[#2f3c5b] text-white flex-col hidden md:flex h-full shadow-xl z-20">
+        <div className="p-6 flex items-center gap-3 border-b border-white/10">
+          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white">
+            <span className="material-symbols-outlined text-2xl">print</span>
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight">XeroxFlow</h1>
             <p className="text-xs text-white/60 font-medium">Customer Center</p>
           </div>
         </div>
-        <nav className="flex-1 px-4 py-4 flex flex-col gap-2 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 flex flex-col gap-2 overflow-y-auto">
           <a className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 text-white shadow-sm transition-all" href="#">
-            <span className="material-symbols-outlined filled">dashboard</span>
+            <span className="material-symbols-outlined">dashboard</span>
             <span className="text-sm font-semibold">Dashboard</span>
           </a>
-          <a className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-all group" href="#request-section">
+          <a className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-all group" href="#new-request">
             <span className="material-symbols-outlined group-hover:scale-110 transition-transform">add_circle</span>
             <span className="text-sm font-medium">New Request</span>
           </a>
@@ -187,23 +231,23 @@ const UsersDashboard = () => {
               <span className="text-xs font-semibold">Storage Used</span>
             </div>
             <div className="w-full bg-white/10 rounded-full h-1.5">
-              <div className="bg-emerald-400 h-1.5 rounded-full w-[25%]" />
+              <div className="bg-emerald-400 h-1.5 rounded-full w-[15%]" />
             </div>
-            <p className="text-[10px] text-white/50">0.2 GB of 5 GB used</p>
+            <p className="text-[10px] text-white/50">0.1 GB of 5 GB used</p>
           </div>
-          <button onClick={handleLogout} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold text-sm transition-colors border border-red-500/20">
+          <button onClick={() => { logout(); navigate('/login'); }} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold text-sm transition-colors border border-red-500/20">
             <span className="material-symbols-outlined text-sm">logout</span>
             Logout
           </button>
         </div>
       </aside>
 
-      {/* Mobile Slide-over Sidebar */}
+      {/* Mobile Slide-over Sidebar Drawer */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <aside className="relative w-64 bg-primary text-white flex flex-col p-6 h-full shadow-2xl animate-fade-in-left">
-            <div className="flex items-center justify-between mb-8">
+          <aside className="relative w-64 bg-[#2f3c5b] text-white flex flex-col p-6 h-full shadow-2xl animate-fade-in-left">
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white">
                   <span className="material-symbols-outlined">print</span>
@@ -219,16 +263,16 @@ const UsersDashboard = () => {
             </div>
             <nav className="flex-1 flex flex-col gap-2">
               <a className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 text-white" href="#" onClick={() => setMobileMenuOpen(false)}>
-                <span className="material-symbols-outlined filled">dashboard</span>
+                <span className="material-symbols-outlined">dashboard</span>
                 <span className="text-sm font-semibold">Dashboard</span>
               </a>
-              <a className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5" href="#request-section" onClick={() => setMobileMenuOpen(false)}>
+              <a className="flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/5" href="#new-request" onClick={() => setMobileMenuOpen(false)}>
                 <span className="material-symbols-outlined">add_circle</span>
                 <span className="text-sm font-medium">New Request</span>
               </a>
             </nav>
             <div className="border-t border-white/10 pt-4 flex flex-col gap-4">
-              <button onClick={handleLogout} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold text-sm transition-colors border border-red-500/20">
+              <button onClick={() => { logout(); navigate('/login'); }} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 font-semibold text-sm transition-colors border border-red-500/20">
                 <span className="material-symbols-outlined text-sm">logout</span>
                 Logout
               </button>
@@ -237,271 +281,384 @@ const UsersDashboard = () => {
         </div>
       )}
 
-      {/* Main Panel */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative h-full overflow-hidden">
         
         {/* Header */}
-        <header className="bg-white dark:bg-[#1f2937] border-b border-gray-200 dark:border-gray-800 h-16 flex items-center justify-between px-6 md:px-8 shrink-0 z-10">
+        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-gray-500 hover:text-primary dark:text-gray-300 dark:hover:text-white">
-              <span className="material-symbols-outlined">menu</span>
+            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden text-gray-500 hover:text-[#2f3c5b]">
+              <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
             <div>
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+              <h2 className="text-lg font-bold text-gray-800">
                 Welcome back, {authUser ? authUser.username : 'Customer'}
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Upload document, set settings, and get prints instantly.</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 p-1.5 rounded-lg">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-100 to-indigo-100 dark:from-indigo-900 dark:to-blue-900 flex items-center justify-center border border-gray-200 dark:border-gray-700">
-                <span className="text-sm font-bold text-primary dark:text-white">{getProfileInitials()}</span>
-              </div>
-              <div className="hidden md:block text-sm text-left">
-                <p className="font-semibold text-gray-700 dark:text-gray-200 leading-tight">{authUser ? authUser.username : 'Customer'}</p>
-                <p className="text-xs text-gray-400">Regular Plan</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#2f3c5b]/10 flex items-center justify-center border border-gray-200">
+              <span className="text-sm font-bold text-[#2f3c5b]">{getProfileInitials()}</span>
+            </div>
+            <div className="hidden sm:block text-sm text-left">
+              <p className="font-semibold text-gray-700 leading-tight">{authUser ? authUser.username : 'Customer'}</p>
+              <p className="text-xs text-gray-400">Regular Plan</p>
             </div>
           </div>
         </header>
 
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto flex flex-col gap-8">
+        {/* Scrollable Container */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#f9fafb]">
+          <div className="max-w-6xl mx-auto flex flex-col gap-8">
             
-            {/* Top Cards Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="bg-white dark:bg-[#1f2937] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Account Role</p>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white capitalize">{authUser ? authUser.role : 'Customer'} Account</h3>
-                  <div className="flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-1">
-                    <span className="material-symbols-outlined text-sm">check_circle</span>
-                    <span>System Connected</span>
-                  </div>
-                </div>
-                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-primary dark:text-indigo-400">
-                  <span className="material-symbols-outlined">account_circle</span>
-                </div>
+            {/* Success and Error Alerts */}
+            {orderError && (
+              <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-lg">error</span>
+                <strong>Error:</strong> {orderError}
               </div>
+            )}
 
-              <div className="bg-white dark:bg-[#1f2937] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Printing Rate</p>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">₹{pricePerPage.toFixed(2)} / page</h3>
-                  <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium mt-1">
-                    <span className="material-symbols-outlined text-sm">sell</span>
-                    <span>Standard Pricing</span>
-                  </div>
+            {orderResult && (
+              <div className="p-5 bg-emerald-50 border-l-4 border-emerald-500 text-emerald-800 rounded-lg text-sm flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-xl text-emerald-600">check_circle</span>
+                  <strong className="text-base">Order Submitted Successfully!</strong>
                 </div>
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-emerald-600 dark:text-emerald-400">
-                  <span className="material-symbols-outlined">payments</span>
-                </div>
+                <p>Order ID: <span className="font-mono text-xs bg-emerald-100 px-2 py-0.5 rounded">{orderResult._id}</span></p>
+                <p className="text-xs text-emerald-600">You can check its printing status in the history log below.</p>
               </div>
-            </div>
+            )}
 
-            {/* Grid for New Requests & Instructions */}
-            <div id="request-section" className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Steps & Request Form Grid */}
+            <div id="new-request" className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
-              {/* Form & Upload Area */}
+              {/* Form Section */}
               <div className="lg:col-span-2 flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">New Print Request</h3>
-                  <button onClick={resetForm} className="text-sm font-semibold text-primary dark:text-indigo-400 hover:underline flex items-center gap-1">
-                    Reset
-                    <span className="material-symbols-outlined text-sm">refresh</span>
-                  </button>
-                </div>
-
-                {/* Drag and Drop Area */}
-                <div 
-                  onDrop={onDrop} 
-                  onDragOver={onDragOver} 
-                  onClick={openFilePicker} 
-                  role="button" 
-                  tabIndex={0} 
-                  className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-8 flex flex-col items-center justify-center bg-white dark:bg-[#1f2937] hover:bg-slate-50 dark:hover:bg-gray-800/40 transition-colors cursor-pointer group relative overflow-hidden"
-                >
-                  <input 
-                    key={fileInputKeyRef.current} 
-                    ref={fileInputRef} 
-                    type="file" 
-                    accept=".pdf,.doc,.docx" 
-                    className="hidden" 
-                    onChange={e => handleFile(e.target.files?.[0])} 
-                  />
-                  <span className="material-symbols-outlined text-4xl text-gray-400 group-hover:text-primary dark:group-hover:text-indigo-400 mb-2 transition-colors">cloud_upload</span>
-                  <p className="text-sm font-bold text-gray-700 dark:text-gray-300 text-center">Drag &amp; drop your file here or click to select</p>
-                  <p className="text-xs text-gray-400 mt-1">PDF, DOCX up to 50MB</p>
-                </div>
-
-                {/* Upload Card and Form Settings */}
-                <div className="bg-white dark:bg-[#1f2937] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
-                  
-                  {/* File information panel */}
-                  <div className="p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                    <div className="flex items-start gap-4">
-                      <div className="bg-red-50 dark:bg-red-950/40 p-3 rounded-xl flex-shrink-0 text-red-500">
-                        <span className="material-symbols-outlined text-2xl">picture_as_pdf</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-base font-bold text-gray-900 dark:text-white truncate">
-                          {uploaded?.name || 'Please select a file to print...'}
-                        </h4>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
-                            {uploaded ? `${uploaded.pages} Pages` : '0 Pages'}
-                          </span>
-                          {uploaded && (
-                            <span className="text-xs text-gray-400">
-                              {(uploaded.size/1024/1024).toFixed(2)} MB
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {uploaded && (
-                        <button onClick={clearUploadedFile} className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                          <span className="material-symbols-outlined">delete</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Print settings controls */}
-                  <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-                    <div className="flex items-center justify-between sm:col-span-1">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">Color Mode</span>
-                        <span className="text-xs text-gray-500">Standard printing</span>
-                      </div>
-                      <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
-                        <button onClick={() => setColorMode('Color')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${colorMode==='Color' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>Color</button>
-                        <button onClick={() => setColorMode('B&W')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${colorMode==='B&W' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>B&amp;W</button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold text-gray-900 dark:text-white">Copies</label>
-                      <div className="flex items-center border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden w-fit">
-                        <button onClick={decCopies} className="w-10 h-10 flex items-center justify-center bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-r border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300">
-                          <span className="material-symbols-outlined text-sm">remove</span>
-                        </button>
-                        <input value={copies} readOnly type="text" className="w-12 h-10 text-center text-sm border-none bg-white dark:bg-[#1f2937] focus:ring-0 text-gray-900 dark:text-white font-bold" />
-                        <button onClick={incCopies} className="w-10 h-10 flex items-center justify-center bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border-l border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300">
-                          <span className="material-symbols-outlined text-sm">add</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold text-gray-900 dark:text-white">Paper Size</label>
-                      <select value={paperSize} onChange={e => setPaperSize(e.target.value)} className="w-full bg-white dark:bg-[#1f2937] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-primary focus:border-primary block p-3">
-                        <option>A4 (Standard)</option>
-                        <option>A3 (Poster)</option>
-                        <option>Letter</option>
-                        <option>Legal</option>
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold text-gray-900 dark:text-white">Sidedness</label>
-                      <select value={sidedness} onChange={e => setSidedness(e.target.value)} className="w-full bg-white dark:bg-[#1f2937] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-primary focus:border-primary block p-3">
-                        <option>Single Sided</option>
-                        <option>Double Sided (Long Edge)</option>
-                        <option>Double Sided (Short Edge)</option>
-                      </select>
-                    </div>
-
-                    {/* Delivery Scheduling */}
-                    <div className="sm:col-span-2 flex flex-col gap-3 border-t border-gray-200 dark:border-gray-800 pt-6 mt-2">
-                      <label className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm text-primary dark:text-indigo-400">schedule</span>
-                        Hardcopy Pick-up Date &amp; Time
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input value={date} onChange={e => setDate(e.target.value)} type="date" className="w-full bg-white dark:bg-[#1f2937] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-primary focus:border-primary block p-3" />
-                        <input value={time} onChange={e => setTime(e.target.value)} type="time" className="w-full bg-white dark:bg-[#1f2937] border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white text-sm rounded-xl focus:ring-primary focus:border-primary block p-3" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Summary Footer */}
-                  <div className="bg-primary/5 dark:bg-primary/20 p-6 flex flex-col sm:flex-row gap-4 items-center justify-between border-t border-gray-200 dark:border-gray-800"> 
-                    <div>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Total Cost Estimation</p>
-                      <p className="text-3xl font-extrabold text-primary dark:text-white">
-                        ₹{( (uploaded?.pages ?? 0) * copies * pricePerPage ).toFixed(2)}
-                      </p>
-                    </div>
-                    <button onClick={handlePay} disabled={loadingPay} className="w-full sm:w-auto bg-primary hover:bg-primary-hover disabled:opacity-60 text-white px-8 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all">
-                      {loadingPay ? 'Processing...' : 'Pay & Print'}
-                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#2f3c5b]">description</span>
+                      New Print Request
+                    </h3>
+                    <button onClick={resetForm} className="text-sm font-semibold text-[#2f3c5b] hover:text-[#3e4c6e] flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">refresh</span> Reset
                     </button>
                   </div>
 
-                  {/* Message displays */}
-                  {orderError && (
-                    <div className="m-6 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-700 dark:text-red-400 rounded-xl text-sm font-medium">
-                      ⚠️ {orderError}
-                    </div>
-                  )}
-
-                  {orderResult && (
-                    <div className="m-6 p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-sm">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold">Order Draft Created Successfully!</p>
-                          <p className="text-xs text-emerald-600 dark:text-emerald-500">ID: {orderResult._id}</p>
+                  {/* STEP 1: Upload File */}
+                  <div>
+                    <span className="inline-block text-xs font-extrabold uppercase tracking-wider text-gray-400 mb-2">Step 1: Upload PDF/Document</span>
+                    
+                    {!documentFile ? (
+                      <div 
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center hover:bg-slate-50 cursor-pointer transition-colors"
+                      >
+                        <input 
+                          ref={fileInputRef} 
+                          type="file" 
+                          accept=".pdf,.doc,.docx" 
+                          className="hidden" 
+                          onChange={e => handleDocumentSelect(e.target.files?.[0])} 
+                        />
+                        <span className="material-symbols-outlined text-4xl text-gray-400 mb-2">cloud_upload</span>
+                        <p className="text-sm font-bold text-gray-700">Drag &amp; drop file here or click to select</p>
+                        <p className="text-xs text-gray-400 mt-1">Accepts PDF, DOCX up to 50MB</p>
+                      </div>
+                    ) : (
+                      <div className="border border-emerald-200 bg-emerald-50/20 rounded-xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-red-50 p-2.5 rounded-lg text-red-500">
+                            <span className="material-symbols-outlined text-2xl">picture_as_pdf</span>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-900 truncate max-w-[200px] sm:max-w-md">{documentDetails.name}</h4>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {parsingPages ? 'Analyzing document...' : `${documentDetails.pages} Pages`} • {(documentDetails.size/1024/1024).toFixed(2)} MB
+                            </p>
+                          </div>
                         </div>
-                        <a href="/dashboard" className="text-sm font-bold text-primary dark:text-indigo-400 hover:underline">
-                          View History
-                        </a>
+                        <button onClick={clearDocument} className="text-gray-400 hover:text-red-500 p-1">
+                          <span className="material-symbols-outlined text-xl">delete</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* STEP 2: Settings */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <span className="inline-block text-xs font-extrabold uppercase tracking-wider text-gray-400 mb-2">Step 2: Print Settings</span>
+                    </div>
+
+                    {/* Color Mode Toggle */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-semibold text-gray-700">Color Mode</label>
+                      <div className="flex bg-gray-100 rounded-xl p-1 border border-gray-200">
+                        <button 
+                          type="button"
+                          onClick={() => setColorMode('bw')} 
+                          className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all ${colorMode === 'bw' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                        >
+                          Black &amp; White (₹2.00)
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => setColorMode('color')} 
+                          className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all ${colorMode === 'color' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+                        >
+                          Color (₹4.00)
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    {/* Copies Counter */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-semibold text-gray-700">Copies</label>
+                      <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden w-full h-[42px] bg-white">
+                        <button 
+                          type="button"
+                          onClick={() => setCopies(c => Math.max(1, c - 1))} 
+                          className="w-12 h-full flex items-center justify-center bg-gray-50 hover:bg-gray-100 border-r border-gray-300 text-gray-600"
+                        >
+                          <span className="material-symbols-outlined text-lg">remove</span>
+                        </button>
+                        <span className="flex-1 text-center font-bold text-sm text-gray-800">{copies}</span>
+                        <button 
+                          type="button"
+                          onClick={() => setCopies(c => Math.min(100, c + 1))} 
+                          className="w-12 h-full flex items-center justify-center bg-gray-50 hover:bg-gray-100 border-l border-gray-300 text-gray-600"
+                        >
+                          <span className="material-symbols-outlined text-lg">add</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Paper Size */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-semibold text-gray-700">Paper Size</label>
+                      <select 
+                        value={paperSize} 
+                        onChange={e => setPaperSize(e.target.value)} 
+                        className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#2f3c5b] focus:border-[#2f3c5b] p-2.5"
+                      >
+                        <option value="A4">A4 (Standard)</option>
+                        <option value="A3">A3 (Poster)</option>
+                        <option value="Letter">Letter</option>
+                        <option value="Legal">Legal</option>
+                      </select>
+                    </div>
+
+                    {/* Sidedness */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-semibold text-gray-700">Sidedness</label>
+                      <select 
+                        value={sidedness} 
+                        onChange={e => setSidedness(e.target.value)} 
+                        className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#2f3c5b] focus:border-[#2f3c5b] p-2.5"
+                      >
+                        <option value="Single Sided">Single Sided</option>
+                        <option value="Double Sided (Long Edge)">Double Sided (Long Edge)</option>
+                        <option value="Double Sided (Short Edge)">Double Sided (Short Edge)</option>
+                      </select>
+                    </div>
+
+                    {/* Delivery / Pick-up Date & Time */}
+                    <div className="sm:col-span-2 flex flex-col gap-2 mt-2">
+                      <label className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-[#2f3c5b]">schedule</span>
+                        Hardcopy Pick-up Delivery Details
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <input 
+                          value={date} 
+                          onChange={e => setDate(e.target.value)} 
+                          type="date" 
+                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#2f3c5b] focus:border-[#2f3c5b] p-2.5" 
+                        />
+                        <input 
+                          value={time} 
+                          onChange={e => setTime(e.target.value)} 
+                          type="time" 
+                          className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#2f3c5b] focus:border-[#2f3c5b] p-2.5" 
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Instructions and Steps panel */}
+              {/* Payment Section (Right Column) */}
               <div className="flex flex-col gap-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">How it Works</h3>
-                <div className="bg-white dark:bg-[#1f2937] rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 flex flex-col gap-6">
-                  
-                  <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-primary dark:text-indigo-400 font-bold text-sm flex-shrink-0">
-                      1
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col gap-5">
+                  <h3 className="text-lg font-bold text-gray-900 pb-3 border-b border-gray-100 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600">payments</span>
+                    Step 3: Payment &amp; Submit
+                  </h3>
+
+                  {/* Pricing break-down */}
+                  <div className="bg-[#f9fafb] rounded-xl p-4 flex flex-col gap-2 text-sm border border-gray-100">
+                    <div className="flex justify-between text-gray-500">
+                      <span>Rate per page:</span>
+                      <span className="font-semibold text-gray-800">₹{pricePerPage.toFixed(2)}</span>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Upload Document</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Select or drag in a PDF or Word document up to 50MB.</p>
+                    <div className="flex justify-between text-gray-500">
+                      <span>Pages detected:</span>
+                      <span className="font-semibold text-gray-800">{documentDetails.pages}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500 text-xs pl-2">
+                      <span>Total printable sheets:</span>
+                      <span>{documentDetails.pages * copies} pages</span>
+                    </div>
+                    <div className="h-px bg-gray-200 my-1" />
+                    <div className="flex justify-between items-baseline mt-1">
+                      <span className="font-bold text-gray-700">Estimated Total:</span>
+                      <span className="text-2xl font-black text-[#2f3c5b]">
+                        ₹{calculatedTotal.toFixed(2)}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-primary dark:text-indigo-400 font-bold text-sm flex-shrink-0">
-                      2
+                  {/* UPI QR Payment */}
+                  <div className="flex flex-col items-center text-center p-3 border border-dashed border-gray-200 rounded-xl bg-slate-50/50">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Scan &amp; Pay via UPI QR</p>
+                    <div className="w-32 h-32 bg-white border border-gray-200 p-2 rounded-lg flex items-center justify-center shadow-sm">
+                      {/* Generates a simple, robust payment QR mockup */}
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=xeroxflow@upi%26pn=XeroxFlow%26am=${calculatedTotal.toFixed(2)}%26cu=INR`} 
+                        alt="UPI Payment QR Code" 
+                        className="w-full h-full object-contain"
+                      />
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Configure Settings</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Choose copy counts, size, and sidedness. Pick up times are configurable.</p>
-                    </div>
+                    <span className="text-[11px] text-gray-400 mt-2 font-medium">Merchant: XeroxFlow System</span>
                   </div>
 
-                  <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-primary dark:text-indigo-400 font-bold text-sm flex-shrink-0">
-                      3
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Make Payment</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Generate print request and make the payment seamlessly.</p>
-                    </div>
+                  {/* Upload Transaction Screenshot */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Upload Payment Receipt / Screen</label>
+                    
+                    {!paymentScreenshot ? (
+                      <div 
+                        onClick={() => screenshotInputRef.current?.click()} 
+                        className="border border-dashed border-gray-300 rounded-xl py-4 px-3 flex flex-col items-center justify-center hover:bg-slate-50 cursor-pointer transition-colors bg-[#f9fafb]"
+                      >
+                        <input 
+                          ref={screenshotInputRef} 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={e => handleScreenshotSelect(e.target.files?.[0])} 
+                        />
+                        <span className="material-symbols-outlined text-2xl text-gray-400 mb-1">photo_camera</span>
+                        <p className="text-[11px] font-semibold text-gray-600">Upload transaction screenshot</p>
+                      </div>
+                    ) : (
+                      <div className="border border-emerald-200 bg-emerald-50/20 rounded-xl py-2 px-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="material-symbols-outlined text-lg text-emerald-600">receipt_long</span>
+                          <span className="text-xs font-bold text-gray-700 truncate max-w-[130px]">{paymentScreenshotName}</span>
+                        </div>
+                        <button onClick={clearScreenshot} className="text-gray-400 hover:text-red-500">
+                          <span className="material-symbols-outlined text-sm">close</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Submission buttons */}
+                  <button 
+                    onClick={handleOrderSubmit}
+                    disabled={loadingSubmit || parsingPages || !documentFile}
+                    className="w-full bg-[#2f3c5b] hover:bg-[#242e46] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#2f3c5b]/15 transition-all mt-2"
+                  >
+                    {loadingSubmit ? 'Submitting Order...' : 'Submit Print Request'}
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
                 </div>
               </div>
 
             </div>
+
+            {/* Section 2: Order History List */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6">
+              <h3 className="text-lg font-bold text-gray-900 pb-3 border-b border-gray-100 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#2f3c5b]">history_edu</span>
+                Your Print Order Logs
+              </h3>
+
+              {loadingOrders ? (
+                <div className="text-center py-8 text-gray-400 text-sm flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#2f3c5b]" />
+                  <span>Loading history...</span>
+                </div>
+              ) : myOrders.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm flex flex-col items-center gap-3">
+                  <span className="material-symbols-outlined text-4xl">feed</span>
+                  <p>You haven't submitted any print requests yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm text-gray-500">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-700 uppercase font-semibold text-[11px] tracking-wider border-b border-gray-200">
+                        <th className="px-6 py-3">Order ID</th>
+                        <th className="px-6 py-3">Document</th>
+                        <th className="px-6 py-3">Configuration</th>
+                        <th className="px-6 py-3">Pickup Scheduled</th>
+                        <th className="px-6 py-3">Price Paid</th>
+                        <th className="px-6 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 border-t border-gray-100">
+                      {myOrders.map(order => (
+                        <tr key={order._id} className="hover:bg-gray-50/50">
+                          <td className="px-6 py-4 font-mono text-[11px] text-gray-400">
+                            #{order._id.substring(order._id.length - 6).toUpperCase()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-gray-800 truncate max-w-[200px] block">
+                              {order.filePath.split(/[\\/]/).pop()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="capitalize font-medium text-gray-700">
+                                {order.printSettings?.printType === 'color' ? '🌈 Color' : '⚫ B&W'}
+                              </span>
+                              <span className="text-gray-400">
+                                {order.printSettings?.copies} copies • {order.printSettings?.paperSize || 'A4'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-600">
+                            {order.printSettings?.pickupTime ? new Date(order.printSettings.pickupTime).toLocaleString() : 'Not Specified'}
+                          </td>
+                          <td className="px-6 py-4 font-bold text-gray-800">
+                            ₹{order.totalCost.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                              order.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              order.status === 'printed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                order.status === 'pending' ? 'bg-amber-500' :
+                                order.status === 'printed' ? 'bg-blue-500' :
+                                'bg-emerald-500'
+                              }`} />
+                              {order.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </main>

@@ -17,7 +17,7 @@ export default function PrintUpload() {
     form.append('copies', copies);
     setLoading(true);
     try {
-      const res = await fetch('/api/prints/upload', { method: 'POST', body: form });
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/prints/upload`, { method: 'POST', body: form });
       const data = await res.json();
       setLoading(false);
       if (!res.ok) return alert(data.error || 'Upload failed');

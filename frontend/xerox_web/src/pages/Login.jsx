@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 
@@ -38,7 +38,7 @@ const Login = () => {
         setMessage('');
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/forgot-password', { email: forgotEmail });
+            const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/forgot-password`, { email: forgotEmail });
             setMessage(res.data.msg);
             setForgotEmail('');
         } catch (err) {
@@ -88,7 +88,7 @@ const Login = () => {
                     <button type="submit">Login</button>
                 </form>
                 <div className="auth-footer">
-                    Don't have an account? <a href="/signup">Sign Up</a>
+                    Don't have an account? <Link to="/signup">Sign Up</Link>
                 </div>
             </div>
         </div>

@@ -48,7 +48,11 @@ const orderSchema = new mongoose.Schema({
     },
     paymentScreenshotPath: {
         type: String,
-        required: true // Now required as per user request
+        default: ''
+    },
+    adminReminderSent: {
+        type: Boolean,
+        default: false
     },
     createdAt: {
         type: Date,

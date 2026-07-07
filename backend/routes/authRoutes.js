@@ -2,16 +2,40 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { sendEmail } = require('../utils/emailHelper');
 const User = require('../models/User');
 
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 
+const validatePassword = (password) => {
+    if (!password || password.length < 7) {
+        return 'Password must be at least 7 characters long';
+    }
+    if (!/[A-Z]/.test(password)) {
+        return 'Password must include at least one uppercase letter';
+    }
+    if (!/[a-z]/.test(password)) {
+        return 'Password must include at least one lowercase letter';
+    }
+    if (!/[0-9]/.test(password)) {
+        return 'Password must include at least one number';
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+        return 'Password must include at least one special character';
+    }
+    return null;
+};
+
 // Signup
 router.post('/signup', async (req, res) => {
     try {
         const { username, email, password, phoneNumber } = req.body;
+
+        const passwordErr = validatePassword(password);
+        if (passwordErr) {
+            return res.status(400).json({ msg: passwordErr });
+        }
 
         // Check if user exists
         let user = await User.findOne({ email });
@@ -157,41 +181,25 @@ router.post('/forgot-password', async (req, res) => {
 
         const message = `You are receiving this email because a password reset request was made for your XeroxFlow account. Please click the following link to reset your password:\n\n${resetUrl}\n\nThis link will expire in 30 minutes.\n\nIf you did not request this, please ignore this email.`;
 
-        // Configure Mailer
-        const smtpPort = parseInt(process.env.SMTP_PORT || '2525', 10);
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-            port: smtpPort,
-            secure: smtpPort === 465,
-            auth: {
-                user: process.env.SMTP_USER || '',
-                pass: process.env.SMTP_PASS || ''
-            }
-        });
-
-        const mailOptions = {
-            from: process.env.SMTP_FROM || 'noreply@xeroxflow.com',
-            to: user.email,
-            subject: 'XeroxFlow - Password Reset Request',
-            text: message
-        };
-
         let emailSent = false;
-        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-            try {
-                await transporter.sendMail(mailOptions);
+        try {
+            const mailInfo = await sendEmail({
+                to: user.email,
+                subject: 'XeroxFlow - Password Reset Request',
+                text: message
+            });
+            if (mailInfo) {
                 emailSent = true;
-            } catch (mailErr) {
-                console.error('SMTP Mail send failed. Logging token to console:', mailErr);
             }
+        } catch (mailErr) {
+            console.error('SMTP Mail send failed. Logging token to console:', mailErr.message);
         }
 
         // Always log the link to the console for local development
         console.log(`\n=== PASSWORD RESET LINK ===\n${resetUrl}\n===========================\n`);
 
         res.json({
-            msg: emailSent ? 'Reset email sent successfully' : 'Reset link generated successfully (logged to server console)',
-            resetUrl: (process.env.SMTP_USER && process.env.SMTP_PASS) ? undefined : resetUrl
+            msg: emailSent ? 'Reset email sent successfully' : 'Reset link generated successfully (logged to server console)'
         });
 
     } catch (err) {
@@ -213,6 +221,11 @@ router.post('/reset-password/:token', async (req, res) => {
 
         if (password !== confirmPassword) {
             return res.status(400).json({ msg: 'Passwords do not match' });
+        }
+
+        const passwordErr = validatePassword(password);
+        if (passwordErr) {
+            return res.status(400).json({ msg: passwordErr });
         }
 
         // Hash token from request params to compare with DB
@@ -266,6 +279,11 @@ router.post('/change-password', auth, async (req, res) => {
 
         if (newPassword !== confirmNewPassword) {
             return res.status(400).json({ msg: 'New passwords do not match' });
+        }
+
+        const passwordErr = validatePassword(newPassword);
+        if (passwordErr) {
+            return res.status(400).json({ msg: passwordErr });
         }
 
         const user = await User.findById(req.user.id);
