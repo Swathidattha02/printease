@@ -61,13 +61,17 @@ const AdminDashboard = () => {
     const fetchOrders = async () => {
         try {
             const res = await axios.get(`${process.env.REACT_APP_API_URL}/orders`);
-            const data = res.data;
-            setOrders(data);
+            const data = res.data || [];
+            // Filter out any razorpay orders that have not been successfully paid
+            const validOrders = data.filter(order => {
+                return !(order.paymentMethod === 'razorpay' && order.paymentStatus !== 'paid');
+            });
+            setOrders(validOrders);
 
             // Calculate Stats
-            const total = data.length;
-            const revenue = data.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
-            const pending = data.filter(o => o.status === 'pending').length;
+            const total = validOrders.length;
+            const revenue = validOrders.reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
+            const pending = validOrders.filter(o => o.status === 'pending').length;
             setStats({ total, revenue, pending });
 
         } catch (err) {
@@ -290,22 +294,28 @@ const AdminDashboard = () => {
                                                 </td>
                                                 <td>
                                                     <div style={{ fontSize: '0.85rem' }}>
-                                                        <span>{order.printSettings.printType}</span>
+                                                        <span style={{ fontWeight: 600 }}>{order.printSettings.printType === 'color' ? '🌈 Color' : '⚫ B&W'}</span>
                                                         <span style={{ margin: '0 6px', color: '#4b5563' }}>•</span>
                                                         <span>{order.printSettings.copies} copies</span>
                                                         <span style={{ margin: '0 6px', color: '#4b5563' }}>•</span>
-                                                        <span>{order.paymentMethod}</span>
-                                                        {order.paymentScreenshotPath && (
+                                                        {order.paymentMethod === 'razorpay' ? (
+                                                            <span style={{ color: '#10b981', fontWeight: 'bold' }}>💳 Razorpay (Verified)</span>
+                                                        ) : (
                                                             <>
-                                                                <span style={{ margin: '0 6px', color: '#4b5563' }}>•</span>
-                                                                <a 
-                                                                    href={`${process.env.REACT_APP_BACKEND_URL}/uploads/${order.paymentScreenshotPath.split(/[\\/]/).pop()}`} 
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer" 
-                                                                    style={{ color: '#38bdf8', textDecoration: 'underline' }}
-                                                                >
-                                                                    Receipt
-                                                                </a>
+                                                                <span>📱 Manual UPI</span>
+                                                                {order.paymentScreenshotPath && (
+                                                                    <>
+                                                                        <span style={{ margin: '0 6px', color: '#4b5563' }}>•</span>
+                                                                        <a 
+                                                                            href={`${process.env.REACT_APP_BACKEND_URL}/uploads/${order.paymentScreenshotPath.split(/[\\/]/).pop()}`} 
+                                                                            target="_blank" 
+                                                                            rel="noopener noreferrer" 
+                                                                            style={{ color: '#38bdf8', textDecoration: 'underline' }}
+                                                                        >
+                                                                            Receipt
+                                                                        </a>
+                                                                    </>
+                                                                )}
                                                             </>
                                                         )}
                                                     </div>

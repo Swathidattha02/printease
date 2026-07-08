@@ -42,13 +42,30 @@ const orderSchema = new mongoose.Schema({
         type: String, // Store Stripe/Razorpay payment intent ID
         default: null
     },
+    paymentStatus: {
+        type: String,
+        enum: ['pending', 'paid', 'failed'],
+        default: 'pending'
+    },
     paymentMethod: {
         type: String,
-        default: 'upi'
+        default: 'upi' // 'upi' or 'razorpay'
     },
     paymentScreenshotPath: {
         type: String,
         default: ''
+    },
+    razorpayOrderId: {
+        type: String,
+        default: null
+    },
+    razorpayPaymentId: {
+        type: String,
+        default: null
+    },
+    razorpaySignature: {
+        type: String,
+        default: null
     },
     adminReminderSent: {
         type: Boolean,

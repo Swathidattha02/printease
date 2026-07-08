@@ -25,6 +25,8 @@ const UsersDashboard = () => {
   // Payment states
   const [paymentScreenshot, setPaymentScreenshot] = useState(null);
   const [paymentScreenshotName, setPaymentScreenshotName] = useState('');
+  const [paymentType, setPaymentType] = useState('razorpay'); // 'razorpay' or 'upi'
+
 
   // Order Submission & History states
   const [loadingSubmit, setLoadingSubmit] = useState(false);
@@ -44,6 +46,15 @@ const UsersDashboard = () => {
   // Load order history and setup fonts/Tailwind config
   useEffect(() => {
     fetchOrdersHistory();
+
+    // Inject Razorpay SDK if not present
+    if (!document.getElementById('razorpay-sdk')) {
+      const script = document.createElement('script');
+      script.id = 'razorpay-sdk';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
 
     // Inject Tailwind CSS configuration if not present
     if (!document.getElementById('tw-cdn-users-dashboard')) {
@@ -77,7 +88,12 @@ const UsersDashboard = () => {
     try {
       setLoadingOrders(true);
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/orders/my-orders`);
-      setMyOrders(res.data || []);
+      const allOrders = res.data || [];
+      // Filter out any razorpay orders that have not been successfully paid
+      const completedOrders = allOrders.filter(order => {
+        return !(order.paymentMethod === 'razorpay' && order.paymentStatus !== 'paid');
+      });
+      setMyOrders(completedOrders);
     } catch (err) {
       console.error('Fetch orders history error:', err);
     } finally {
@@ -142,6 +158,7 @@ const UsersDashboard = () => {
     setSidedness('Double Sided (Long Edge)');
     setDate('');
     setTime('');
+    setPaymentType('razorpay');
     setOrderResult(null);
     setOrderError(null);
   };
@@ -156,7 +173,7 @@ const UsersDashboard = () => {
       setOrderError('Please specify pick-up date and time');
       return;
     }
-    if (!paymentScreenshot) {
+    if (paymentType === 'upi' && !paymentScreenshot) {
       setOrderError('Please upload your payment screenshot/receipt to complete the order');
       return;
     }
@@ -164,29 +181,106 @@ const UsersDashboard = () => {
     setOrderError(null);
     setLoadingSubmit(true);
 
-    try {
-      const fd = new FormData();
-      fd.append('file', documentFile);
-      fd.append('paymentScreenshot', paymentScreenshot);
-      fd.append('printType', colorMode);
-      fd.append('copies', String(copies));
-      fd.append('paperSize', paperSize);
-      fd.append('pickupTime', `${date} ${time}`);
-      fd.append('paymentMethod', 'upi');
+    if (paymentType === 'razorpay') {
+      try {
+        // 1. Create the backend order and Razorpay order
+        const fd = new FormData();
+        fd.append('file', documentFile);
+        fd.append('printType', colorMode);
+        fd.append('copies', String(copies));
+        fd.append('paperSize', paperSize);
+        fd.append('pickupTime', `${date} ${time}`);
 
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/orders`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+        const createRes = await axios.post(`${process.env.REACT_APP_API_URL}/orders/razorpay/create`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
 
-      setOrderResult(res.data);
-      resetForm();
-      fetchOrdersHistory(); // Refresh history list
-    } catch (err) {
-      console.error('Order submit error:', err);
-      const msg = err?.response?.data?.msg || err?.response?.data || err.message || 'Failed to submit order';
-      setOrderError(msg);
-    } finally {
-      setLoadingSubmit(false);
+        const { rzpOrder, order } = createRes.data;
+
+        // 2. Setup and trigger Razorpay Checkout
+        const keyId = process.env.REACT_APP_RAZORPAY_KEY_ID || 'rzp_test_YOUR_KEY_ID_HERE';
+        if (keyId.includes('YOUR_KEY_ID')) {
+          throw new Error('Razorpay client Key ID is not configured in environment variables.');
+        }
+
+        const options = {
+          key: keyId,
+          amount: rzpOrder.amount,
+          currency: rzpOrder.currency,
+          name: 'XeroxFlow Print Service',
+          description: `Order for printing document: ${documentDetails.name}`,
+          order_id: rzpOrder.id,
+          handler: async function (response) {
+            try {
+              // Submit verification to backend
+              const verifyRes = await axios.post(`${process.env.REACT_APP_API_URL}/orders/razorpay/verify`, {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              });
+
+              if (verifyRes.data.success) {
+                setOrderResult(verifyRes.data.order);
+                resetForm();
+                fetchOrdersHistory();
+              } else {
+                setOrderError('Payment verification failed.');
+              }
+            } catch (verifyErr) {
+              console.error('Payment verification error:', verifyErr);
+              setOrderError(verifyErr.response?.data?.msg || 'Error verifying your payment. Please contact admin.');
+            }
+          },
+          prefill: {
+            name: authUser?.username || '',
+            email: authUser?.email || '',
+            contact: authUser?.phoneNumber || ''
+          },
+          theme: {
+            color: '#2f3c5b'
+          },
+          modal: {
+            ondismiss: function () {
+              setOrderError('Payment checkout was closed.');
+              setLoadingSubmit(false);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        console.error('Razorpay initialization/checkout error:', err);
+        const msg = err?.response?.data?.msg || err?.response?.data || err.message || 'Failed to initiate Razorpay checkout';
+        setOrderError(msg);
+        setLoadingSubmit(false);
+      }
+    } else {
+      // Existing UPI screenshot flow
+      try {
+        const fd = new FormData();
+        fd.append('file', documentFile);
+        fd.append('paymentScreenshot', paymentScreenshot);
+        fd.append('printType', colorMode);
+        fd.append('copies', String(copies));
+        fd.append('paperSize', paperSize);
+        fd.append('pickupTime', `${date} ${time}`);
+        fd.append('paymentMethod', 'upi');
+
+        const res = await axios.post(`${process.env.REACT_APP_API_URL}/orders`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        setOrderResult(res.data);
+        resetForm();
+        fetchOrdersHistory(); // Refresh history list
+      } catch (err) {
+        console.error('Order submit error:', err);
+        const msg = err?.response?.data?.msg || err?.response?.data || err.message || 'Failed to submit order';
+        setOrderError(msg);
+      } finally {
+        setLoadingSubmit(false);
+      }
     }
   };
 
@@ -520,51 +614,85 @@ const UsersDashboard = () => {
                     </div>
                   </div>
 
-                  {/* UPI QR Payment */}
-                  <div className="flex flex-col items-center text-center p-3 border border-dashed border-gray-200 rounded-xl bg-slate-50/50">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Scan &amp; Pay via UPI QR</p>
-                    <div className="w-32 h-32 bg-white border border-gray-200 p-2 rounded-lg flex items-center justify-center shadow-sm">
-                      {/* Generates a simple, robust payment QR mockup */}
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=xeroxflow@upi%26pn=XeroxFlow%26am=${calculatedTotal.toFixed(2)}%26cu=INR`} 
-                        alt="UPI Payment QR Code" 
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <span className="text-[11px] text-gray-400 mt-2 font-medium">Merchant: XeroxFlow System</span>
+                   {/* Payment Method Selector */}
+                  <div className="flex bg-gray-100 rounded-xl p-1 border border-gray-200 mt-1">
+                    <button 
+                      type="button"
+                      onClick={() => setPaymentType('razorpay')} 
+                      className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentType === 'razorpay' ? 'bg-[#2f3c5b] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      <span className="material-symbols-outlined text-xs">flash_on</span>
+                      Pay Online
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setPaymentType('upi')} 
+                      className={`flex-1 py-2 text-center rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${paymentType === 'upi' ? 'bg-[#2f3c5b] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      <span className="material-symbols-outlined text-xs">photo_camera</span>
+                      Manual UPI QR
+                    </button>
                   </div>
 
-                  {/* Upload Transaction Screenshot */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Upload Payment Receipt / Screen</label>
-                    
-                    {!paymentScreenshot ? (
-                      <div 
-                        onClick={() => screenshotInputRef.current?.click()} 
-                        className="border border-dashed border-gray-300 rounded-xl py-4 px-3 flex flex-col items-center justify-center hover:bg-slate-50 cursor-pointer transition-colors bg-[#f9fafb]"
-                      >
-                        <input 
-                          ref={screenshotInputRef} 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={e => handleScreenshotSelect(e.target.files?.[0])} 
-                        />
-                        <span className="material-symbols-outlined text-2xl text-gray-400 mb-1">photo_camera</span>
-                        <p className="text-[11px] font-semibold text-gray-600">Upload transaction screenshot</p>
+                  {paymentType === 'razorpay' ? (
+                    <div className="flex flex-col gap-3 py-3 text-center border border-emerald-100 rounded-xl bg-emerald-50/20 p-4">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 mx-auto">
+                        <span className="material-symbols-outlined text-lg">verified_user</span>
                       </div>
-                    ) : (
-                      <div className="border border-emerald-200 bg-emerald-50/20 rounded-xl py-2 px-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="material-symbols-outlined text-lg text-emerald-600">receipt_long</span>
-                          <span className="text-xs font-bold text-gray-700 truncate max-w-[130px]">{paymentScreenshotName}</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Secure Online Checkout</h4>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Pay instantly via UPI, Cards, Netbanking, or Wallets.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* UPI QR Payment */}
+                      <div className="flex flex-col items-center text-center p-3 border border-dashed border-gray-200 rounded-xl bg-slate-50/50">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Scan &amp; Pay via UPI QR</p>
+                        <div className="w-32 h-32 bg-white border border-gray-200 p-2 rounded-lg flex items-center justify-center shadow-sm">
+                          {/* Generates a simple, robust payment QR mockup */}
+                          <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=upi://pay?pa=xeroxflow@upi%26pn=XeroxFlow%26am=${calculatedTotal.toFixed(2)}%26cu=INR`} 
+                            alt="UPI Payment QR Code" 
+                            className="w-full h-full object-contain"
+                          />
                         </div>
-                        <button onClick={clearScreenshot} className="text-gray-400 hover:text-red-500">
-                          <span className="material-symbols-outlined text-sm">close</span>
-                        </button>
+                        <span className="text-[11px] text-gray-400 mt-2 font-medium">Merchant: XeroxFlow System</span>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Upload Transaction Screenshot */}
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Upload Payment Receipt / Screen</label>
+                        
+                        {!paymentScreenshot ? (
+                          <div 
+                            onClick={() => screenshotInputRef.current?.click()} 
+                            className="border border-dashed border-gray-300 rounded-xl py-4 px-3 flex flex-col items-center justify-center hover:bg-slate-50 cursor-pointer transition-colors bg-[#f9fafb]"
+                          >
+                            <input 
+                              ref={screenshotInputRef} 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={e => handleScreenshotSelect(e.target.files?.[0])} 
+                            />
+                            <span className="material-symbols-outlined text-2xl text-gray-400 mb-1">photo_camera</span>
+                            <p className="text-[11px] font-semibold text-gray-600">Upload transaction screenshot</p>
+                          </div>
+                        ) : (
+                          <div className="border border-emerald-200 bg-emerald-50/20 rounded-xl py-2 px-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="material-symbols-outlined text-lg text-emerald-600">receipt_long</span>
+                              <span className="text-xs font-bold text-gray-700 truncate max-w-[130px]">{paymentScreenshotName}</span>
+                            </div>
+                            <button onClick={clearScreenshot} className="text-gray-400 hover:text-red-500">
+                              <span className="material-symbols-outlined text-sm">close</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   {/* Submission buttons */}
                   <button 
@@ -572,7 +700,7 @@ const UsersDashboard = () => {
                     disabled={loadingSubmit || parsingPages || !documentFile}
                     className="w-full bg-[#2f3c5b] hover:bg-[#242e46] disabled:opacity-50 text-white py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#2f3c5b]/15 transition-all mt-2"
                   >
-                    {loadingSubmit ? 'Submitting Order...' : 'Submit Print Request'}
+                    {loadingSubmit ? 'Processing...' : (paymentType === 'razorpay' ? 'Pay & Submit Order' : 'Submit Print Request')}
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
                   </button>
                 </div>
